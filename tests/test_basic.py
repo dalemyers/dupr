@@ -51,7 +51,9 @@ def dupr_client() -> dupr.DUPR:
         refresh_token = None
 
     if not is_valid_refresh_token(refresh_token):
-        auth: DuprAuth = DuprEmailPassword(os.environ["DUPR_EMAIL"], os.environ["DUPR_PASSWORD"])
+        auth: DuprAuth = DuprEmailPassword(
+            os.environ["DUPR_EMAIL"], os.environ["DUPR_PASSWORD"]
+        )
     else:
         assert refresh_token is not None
         auth = DuprRefreshToken(refresh_token)
@@ -74,3 +76,15 @@ def test_get_user(client: dupr.DUPR):
     """Test that get_user works."""
     members = list(client.get_club_members(8144440321))
     assert len(members) > 0
+
+
+def test_search_players(client: dupr.DUPR):
+    """Test that search_players works."""
+    players = list(client.search_players("8144440321"))
+    assert len(players) > 0
+
+
+def test_get_player(client: dupr.DUPR):
+    """Test that get_player works."""
+    player = list(client.get_player(4981843663))
+    assert player is not None

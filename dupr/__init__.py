@@ -45,12 +45,45 @@ class DUPR:
                 "limit": limit,
                 "query": "*",
             }
-            response = self.http_client.post(
-                f"/club/{club_id}/members/v1.0/all", json_data=body
-            )
+            response = self.http_client.post(f"/club/{club_id}/members/v1.0/all", json_data=body)
             data = response.json()
             hits = data["result"]["hits"]
             if len(hits) == 0:
                 break
             yield from hits
             offset += limit
+
+    def search_players(self, query: str) -> Iterator[dict[str, Any]]:
+        """Search for players.
+
+        :param query: The value to search for
+
+        :return: An iterator of all matching members
+        """
+        offset = 0
+        limit = 25  # 25 is the max allowed by the API
+
+        while True:
+            body = {
+                "filter": {},
+                "limit": limit,
+                "query": query,
+            }
+            response = self.http_client.post("/player/v1.0/search", json_data=body)
+            data = response.json()
+            hits = data["result"]["hits"]
+            if len(hits) == 0:
+                break
+            yield from hits
+            offset += limit
+
+    def get_player(self, player_id: int) -> dict[str, Any]:
+        """Get a players info.
+
+        :param player_id: The ID of the player. This is not the same as the share ID.
+
+        :return: An iterator of all matching members
+        """
+        response = self.http_client.get(f"/player/v1.0/{player_id}")
+        data = response.json()
+        return data["result"]
