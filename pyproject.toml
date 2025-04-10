@@ -12,6 +12,7 @@ homepage = "https://github.com/dalemyers/dupr"
 
 [tool.poetry.dependencies]
 python = "^3.11"
+platformdirs = "^4.0.0"
 requests = "^2.25.0"
 
 [tool.poetry.dev-dependencies]

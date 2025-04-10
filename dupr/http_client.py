@@ -1,12 +1,19 @@
 """HTTP client for the DUPR API."""
 
+import base64
+import datetime
+import json
 import logging
+import os
+from platformdirs import user_cache_dir
 from typing import Any
 
 import requests
 
 from .auth import DuprAuth, DuprEmailPassword, DuprRefreshToken
 from .exceptions import DuprHttpException
+
+TOKENS_PATH = os.path.join(user_cache_dir("dupr"), ".tokens")
 
 
 class DuprHttpClient:
@@ -19,6 +26,7 @@ class DuprHttpClient:
     _password: str
     _access_token: str | None
     _refresh_token: str | None
+    self._cache_tokens: bool
 
     _session: requests.Session
 
@@ -26,12 +34,14 @@ class DuprHttpClient:
         self,
         *,
         auth: DuprAuth,
+        cache_tokens: bool = True,
         log: logging.Logger,
     ) -> None:
         """Construct a new client object."""
 
         self.log = log.getChild("http")
         self._access_token = None
+        self._cache_tokens = cache_tokens
 
         if isinstance(auth, DuprEmailPassword):
             self._username = auth.email
@@ -42,8 +52,43 @@ class DuprHttpClient:
 
         self._session = requests.Session()
 
+    def get_expiry_date(self, token: str) -> int:
+        """Get the expiry date of a token.
+
+        :param token: The token to decode
+
+        :returns: The expiry date of the token
+        """
+
+        payload_b64 = token.split(".")[1]
+        padding_length = 4 - (len(payload_b64) % 4)
+        padded_payload_b64 = payload_b64 + ("=" * padding_length)
+        payload_bytes = base64.decodebytes(padded_payload_b64.encode("utf-8"))
+        payload_string = payload_bytes.decode("utf-8")
+        payload = json.loads(payload_string)
+        expiration_value = payload["exp"]
+        expiration = datetime.datetime.fromtimestamp(expiration_value)
+        return expiration
+
     def refresh_tokens(self) -> tuple[str, str]:
         """Refresh the access token."""
+
+        if self._cache_tokens and os.path.exists(TOKENS_PATH):
+            with open(TOKENS_PATH, "r") as f:
+                data = json.load(f)
+
+            access_expiry = self.get_expiry_date(data["accessToken"])
+            refresh_expiry = self.get_expiry_date(data["refreshToken"])
+
+            if access_expiry > datetime.datetime.now() + datetime.timedelta(minutes=1):
+                self._access_token = data["accessToken"]
+            else:
+                self._access_token = None
+
+            if refresh_expiry > datetime.datetime.now() + datetime.timedelta(minutes=1):
+                self._refresh_token = data["refreshToken"]
+            else:
+                self._refresh_token = None
 
         if self._access_token and self._refresh_token:
             return (self._access_token, self._refresh_token)
@@ -76,6 +121,12 @@ class DuprHttpClient:
 
         assert self._access_token
         assert self._refresh_token
+
+        if self._cache_tokens:
+            os.makedirs(os.path.dirname(TOKENS_PATH), exist_ok=True)
+
+            with open(TOKENS_PATH, "w") as f:
+                json.dump(data["result"], f)
 
         return (self._access_token, self._refresh_token)
 
