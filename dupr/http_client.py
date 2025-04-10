@@ -26,7 +26,7 @@ class DuprHttpClient:
     _password: str
     _access_token: str | None
     _refresh_token: str | None
-    self._cache_tokens: bool
+    _cache_tokens: bool
 
     _session: requests.Session
 
